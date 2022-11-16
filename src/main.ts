@@ -4,7 +4,7 @@ import http from "http";
 import cors from "cors";
 import { Server } from "socket.io";
 import { formatMessage } from "./utils/messages";
-import { userJoin, getCurrentUser } from "./utils/users";
+import { getCurrentUser, getRoomUser, userJoin, userLeave } from "./utils/users";
 
 const app = express();
 const server = http.createServer(app);
@@ -24,8 +24,6 @@ app.use(express.static(path.join(__dirname, "/../public")));
 io.on("connection", (socket) => {
   console.log("New Ws connection....");
 
-  
-
   socket.on(
     "joinroom",
     ({ username, room }: { username: string; room: string }) => {
@@ -37,19 +35,37 @@ io.on("connection", (socket) => {
       // Boardcast when a wuser connected
       socket.broadcast
         .to(user.room)
-        .emit("message", formatMessage(botName, `A ${user.username} has joined the chat`));
+        .emit(
+          "message",
+          formatMessage(botName, `A ${user.username} has joined the chat`)
+        );
+
+      // Send users and roominfo
+      io.to(user.room).emit("roomUsers", {
+        room: user.room,
+        users: getRoomUser(user.room),
+      })
     }
   );
 
   // runs when client disconnects
   socket.on("disconnect", () => {
-    io.emit("message", formatMessage(botName, "A user has left the chat"));
+    const user = userLeave(socket.id);
+    if (user) {
+      io.to(user!.room).emit("message", formatMessage(botName, "A user has left the chat"));
+
+      // Send users and roominfo
+      io.to(user.room).emit("roomUsers", {
+        room: user.room,
+        users: getRoomUser(user.room),
+      })
+    }
   });
 
   // Listen for chatMessage
   socket.on("chatMessage", (msg) => {
-    console.log(msg);
-    io.emit("message", formatMessage("USER", msg));
+    const user = getCurrentUser(socket.id);
+    io.to(user!.room).emit("message", formatMessage(user!.username, msg));
   });
 });
 

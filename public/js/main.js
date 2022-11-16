@@ -2,6 +2,8 @@
 const chatForm = document.getElementById("chat-form");
 const msg = document.getElementById("msg");
 const chatMessage = document.querySelector(".chat-messages");
+const roomName = document.getElementById("room-name");
+const userLists = document.getElementById("users");
 
 // from URL
 const { username, room } = Qs.parse(location.search, {
@@ -30,6 +32,28 @@ const outputMessage = (message) => {
   chatMessage.appendChild(div);
 };
 
+/**
+ * @function outputRoomName
+ * @description add room name to DOM
+ * @param {string} room
+ * @returns {void}
+ */
+function outputRoomName(room) {
+  roomName.innerText = room;
+}
+
+/**
+ * @function outputUsers
+ * @param {object[]}  users
+ * @param {string}    users[].username
+ * @returns {void}
+ */
+function outputUsers(users) {
+  userLists.innerHTML = `
+    ${users.map((user) => `<li>${user.username}</li>`).join("")}
+  `;
+}
+
 // Socket
 const socket = io("http://localhost:3000/");
 
@@ -38,10 +62,10 @@ socket.on("connect", () => {
 });
 
 // Join chatroom
-socket.emit('joinroom', {
+socket.emit("joinroom", {
   username,
   room,
-})
+});
 
 socket.on("message", (message) => {
   console.log(message);
@@ -49,6 +73,12 @@ socket.on("message", (message) => {
 
   // Scroll down
   chatMessage.scrollTop = chatMessage.scrollHeight;
+});
+
+// Get room and users
+socket.on("roomUsers", ({ room, users }) => {
+  outputRoomName(room);
+  outputUsers(users);
 });
 
 // Message submit
@@ -59,4 +89,12 @@ chatForm.addEventListener("submit", (e) => {
   socket.emit("chatMessage", message);
   msg.value = "";
   msg.focus();
+});
+
+//Prompt the user before leave chat room
+document.getElementById("leave-btn").addEventListener("click", () => {
+  const leaveRoom = confirm("Are you sure you want to leave the chatroom?");
+  if (leaveRoom) {
+    window.location = "../index.html";
+  }
 });
